@@ -13,7 +13,7 @@ using std::cin;
 using std::cout;
 using std::endl;
 const int total_mem = 1 << 20;
-u_char mem_in[total_mem * 4], mem_out[total_mem * 4];
+u_char mem_in[total_mem * 4];
 uint reg_in[33], reg_out[33];
 uint &pc_in = reg_in[32], &pc_out = reg_out[32];
 
@@ -69,19 +69,18 @@ void WriteHalfWord(u_char* mem, uint addr, ushort val) { *(ushort*)(mem + addr) 
 
 void WriteWord(u_char* mem, uint addr, uint val) { *(uint*)(mem + addr) = val; }
 
+void Init()
+{
+
+}
 signed main() {
-#ifndef ONLINE_JUDGE
-  freopen("!input.txt", "r", stdin);
-// freopen("!output.txt","w",stdout);
-#endif
   memset(mem_in, 0, sizeof(mem_in));
-  memset(mem_in, 0, sizeof(reg_in));
+  memset(reg_in, 0, sizeof(reg_in));
   pc_in = 0;
   ScanMem(mem_in);
 #ifndef ONLINE_JUDGE
   ShowMem("input_mem", mem_in);
 #endif
-  memcpy(mem_out, mem_in, sizeof(mem_in));
   while (1) {
     uint ori_instr = GetWord(mem_in, pc_in);
     if (ori_instr == 0x0ff00513) {
@@ -244,7 +243,6 @@ signed main() {
       reg_out[instr.rd] = pc_in + (instr.imm << 12);
     } else
       cerr << "fail!" << endl;
-    // memcpy(mem_in, mem_out, sizeof(mem_in));
     if (temp_record.is_available) {
       temp_record.is_available = false;
       if (temp_record.write_type == WriteRecord::kByte) {
