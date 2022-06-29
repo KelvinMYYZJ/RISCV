@@ -15,9 +15,13 @@ for c_file in c_files:
     case_name = os.path.splitext(c_file)[0]
     fin = open(c_file,"r")
     code = fin.read()
-    idx = code.find("// ")
-    st_idx = idx + 3
-    ed_idx = idx + 3
+    idx = code.find(";  // ")
+    st_idx = idx + 6
+    ed_idx = idx + 6
+    if (idx == -1):
+        idx = code.find("; // ")
+        st_idx = idx + 5
+        ed_idx = idx + 5
     while (isdigit(code[ed_idx])):
         ed_idx += 1
     std_out = code[st_idx : ed_idx] + '\n'
