@@ -398,7 +398,7 @@ int main(int argc, char const* argv[]) {
       }
     }
     static uint commit_num = 0;
-    if (commit_num <= 2000) {
+    if (commit_num <= 20000000) {
       std::cerr << commit_num++ << std::endl;
       std::cerr << "commit instr : " << std::hex << ori_instr << " at pc : " << std::hex << pc_in << std::endl;
       if (tmp) {
