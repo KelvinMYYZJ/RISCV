@@ -187,7 +187,7 @@ class CPU {
     }
 
     // Read an instruction if possible
-    if (pc == pc_nxt && !instr_queue.Full() && MemReadable(pc, MemAccessType::kWord)) {
+    if (!clear_flag && !instr_queue.Full() && MemReadable(pc, MemAccessType::kWord)) {
       pc_nxt = pc + 4;
       InstrQueueInfo obj(GetWord(mem, pc), pc);
       if (obj.instr.op_type == BasicOpType::kJAL) {
