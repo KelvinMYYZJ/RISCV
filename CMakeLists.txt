@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.10.2)
 project(TrainTicketSystem)
 set(CMAKE_CXX_STANDARD 17)
 # ------------------the following is to be modified------------------
-set(lib_dir_names )
-set(program_names code)
+set(lib_dir_names basic_op component data_structrue data)
+set(program_names code code_std)
 
 # -------------------------------------------------------------------
 
@@ -28,12 +28,11 @@ foreach(lib_dir_name ${lib_dir_names})
   file(GLOB_RECURSE tmp_files ${now_lib_dir}/*.cpp)
   list(APPEND src_files ${tmp_files})
 endforeach()
-# include_directories("${lib_dirs}")
-include_directories(${src_base_dir})
+include_directories("${lib_dirs}")
 
 message("${lib_dirs}")
 message("${src_files}")
-set(main_base_dir ${src_base_dir})
+set(main_base_dir ${src_base_dir}/main)
 foreach(program_name ${program_names})
   set(now_main_file ${main_base_dir}/${program_name}.cpp )
   message("${program_name} ${now_main_file} ${src_files}")

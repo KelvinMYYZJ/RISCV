@@ -1,21 +1,157 @@
 #include <bits/stdc++.h>
 
-#include "instr_decoder.hpp"
-#include "mem_scanner.hpp"
-#include "number_operator.hpp"
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
 #ifndef ONLINE_JUDGE
 #ifndef BUG
 #define DEBUG
 #endif
 #endif
-using std::cerr;
-using std::cin;
-using std::cout;
-using std::endl;
+using namespace std;
+
+uint HexStringToInt(const char* str) {
+  uint ret = 0;
+  for (int i = 0; i < strlen(str); ++i) ret = (ret << 4) + (isalpha(str[i]) ? (str[i] - 'A' + 10) : (str[i] - '0'));
+  return ret;
+}
+
+void ScanMem(u_char* mem) {
+  char tmp[20];
+  u_char* now_ptr = mem;
+  while (scanf("%s", tmp) != EOF) {
+    if (tmp[0] == '@') {
+      now_ptr = mem + HexStringToInt(tmp + 1);
+      continue;
+    }
+    *now_ptr++ = u_char(HexStringToInt(tmp));
+  }
+}
 const int total_mem = 1 << 20;
 u_char mem_in[total_mem * 4], mem_out[total_mem * 4];
 uint reg_in[33], reg_out[33];
 uint &pc_in = reg_in[32], &pc_out = reg_out[32];
+
+void ShowMem(const string& file_name) {
+  fstream fout(file_name + ".dat", ios::out);
+  fout.write(reinterpret_cast<char*>(mem_in), sizeof(mem_in));
+  fout.close();
+}
+// 0-base
+uint GetBits(uint obj, int st, int ed) { return (obj >> ed) & ((1 << (st - ed + 1)) - 1); }
+bool GetBit(uint obj, int bit_pos) { return obj & (1 << bit_pos); }
+
+bool Sig(uint obj) { return GetBit(obj, 31); }
+
+uint CompToOri(uint obj) {
+  return obj;
+  // if (!Sig(obj)) return obj;
+  // return ((~obj) + 1) ^ 0x80000000;
+}
+
+uint Ext(uint obj, int sig_pos) {
+  if (!GetBit(obj, sig_pos)) return obj & ((1 << (sig_pos + 1)) - 1);
+  return obj | (0xFFFFFFFF << (sig_pos + 1));
+}
+
+struct RTypeInstr {
+  uint instr;
+  uint func7;
+  uint rs2;
+  uint rs1;
+  uint func3;
+  uint rd;
+  RTypeInstr(uint _instr) : instr(_instr) {
+    func7 = GetBits(instr, 31, 25);
+    rs2 = GetBits(instr, 24, 20);
+    rs1 = GetBits(instr, 19, 15);
+    func3 = GetBits(instr, 14, 12);
+    rd = GetBits(instr, 11, 7);
+  }
+};
+
+struct RSTypeInstr {
+  uint instr;
+  uint func7;
+  int shamt;
+  uint rs1;
+  uint func3;
+  uint rd;
+  RSTypeInstr(uint _instr) : instr(_instr) {
+    func7 = GetBits(instr, 31, 25);
+    shamt = GetBits(instr, 24, 20);
+    rs1 = GetBits(instr, 19, 15);
+    func3 = GetBits(instr, 14, 12);
+    rd = GetBits(instr, 11, 7);
+  }
+};
+
+struct ITypeInstr {
+  uint instr;
+  int imm;
+  uint rs1;
+  uint func3;
+  uint rd;
+  ITypeInstr(uint _instr) : instr(_instr) {
+    imm = CompToOri(Ext(GetBits(instr, 31, 20), 11));
+    rs1 = GetBits(instr, 19, 15);
+    func3 = GetBits(instr, 14, 12);
+    rd = GetBits(instr, 11, 7);
+  }
+};
+
+struct STypeInstr {
+  uint instr;
+  int imm;
+  uint rs2;
+  uint rs1;
+  uint func3;
+  STypeInstr(uint _instr) : instr(_instr) {
+    imm = CompToOri(Ext(GetBits(instr, 31, 25) << 5 | GetBits(instr, 11, 7), 11));
+    rs2 = GetBits(instr, 24, 20);
+    rs1 = GetBits(instr, 19, 15);
+    func3 = GetBits(instr, 14, 12);
+  }
+};
+
+struct BTypeInstr {
+  uint instr;
+  int imm;
+  uint rs2;
+  uint rs1;
+  uint func3;
+  BTypeInstr(uint _instr) : instr(_instr) {
+    imm = CompToOri(
+        Ext(GetBit(instr, 31) << 12 | GetBit(instr, 7) << 11 | GetBits(instr, 20, 25) << 5 | GetBits(instr, 11, 8) << 1,
+            12));
+    rs2 = GetBits(instr, 24, 20);
+    rs1 = GetBits(instr, 19, 15);
+    func3 = GetBits(instr, 14, 12);
+  }
+};
+
+struct UTypeInstr {
+  uint instr;
+  int imm;
+  uint rd;
+  UTypeInstr(uint _instr) : instr(_instr) {
+    imm = CompToOri(Ext(GetBits(instr, 31, 12), 19));
+    rd = GetBits(instr, 11, 7);
+  }
+};
+
+struct JTypeInstr {
+  uint instr;
+  int imm;
+  uint rd;
+  JTypeInstr(uint _instr) : instr(_instr) {
+    imm = CompToOri(Ext(
+        GetBit(instr, 31) << 20 | GetBits(instr, 30, 21) << 1 | GetBit(instr, 20) << 11 | GetBits(instr, 19, 12) << 12,
+        20));
+    rd = GetBits(instr, 11, 7);
+  }
+};
 
 enum class BasicOpType : uint {
   kLoadMem = 0x3,    // op_code = 0000011 , ImmType = I
@@ -69,21 +205,25 @@ void WriteHalfWord(u_char* mem, uint addr, ushort val) { *(ushort*)(mem + addr) 
 
 void WriteWord(u_char* mem, uint addr, uint val) { *(uint*)(mem + addr) = val; }
 
-signed main() {
+int main(int argc, char const* argv[]) {
 #ifndef ONLINE_JUDGE
-  freopen("!input.txt", "r", stdin);
-// freopen("!output.txt","w",stdout);
+  if (argc > 1 && strcmp(argv[1], "debug") == 0) {
+    if (argc > 2)
+      freopen(argv[2], "r", stdin);
+    else
+      freopen("!input.txt", "r", stdin);
+    // freopen("!output.txt","w",stdout);
+  }
 #endif
   memset(mem_in, 0, sizeof(mem_in));
   memset(mem_in, 0, sizeof(reg_in));
   pc_in = 0;
   ScanMem(mem_in);
-#ifndef ONLINE_JUDGE
-  ShowMem("input_mem", mem_in);
-#endif
+  ShowMem("input_mem");
   memcpy(mem_out, mem_in, sizeof(mem_in));
   while (1) {
     uint ori_instr = GetWord(mem_in, pc_in);
+    std::cerr << "commit instr : " << std::hex << ori_instr << " at pc : " << std::hex << pc_in << std::endl;
     if (ori_instr == 0x0ff00513) {
       cout << (reg_in[10] & 0xff) << endl;
       break;
@@ -170,8 +310,8 @@ signed main() {
           }
           if (instr.func7 == 0x20) {    // srai
             if (instr.func7 == 0x20) {  // sra
-              reg_out[instr.rd] = reg_in[instr.rs1] >> GetBits(instr.shamt, 4, 0) |
-                                  (GetBit(reg_in[instr.rs1], 31) ? 0xFFFFFFF << (32 - GetBits(instr.shamt, 4, 0)) : 0);
+              reg_out[instr.rd] = reg_in[instr.rs1] >> instr.shamt |
+                                  (GetBit(reg_in[instr.rs1], 31) ? 0xFFFFFFF << (32 - instr.shamt) : 0);
             }
           }
         }
@@ -247,6 +387,8 @@ signed main() {
     // memcpy(mem_in, mem_out, sizeof(mem_in));
     if (temp_record.is_available) {
       temp_record.is_available = false;
+      std::cerr << "write mem : addr : " << std::hex << temp_record.addr << ", data : ";
+      std::cerr << std::hex << temp_record.val << std::endl;
       if (temp_record.write_type == WriteRecord::kByte) {
         WriteByte(mem_in, temp_record.addr, temp_record.val);
       }
@@ -257,6 +399,10 @@ signed main() {
         WriteWord(mem_in, temp_record.addr, temp_record.val);
       }
     }
+
+    std::cerr << "---------reg---------" << endl;
+    for (int i = 0; i < 32; ++i) std::cerr << "reg[" << i << "] : " << std::hex << reg_out[i] << endl;
+    std::cerr << "--------!reg!--------" << endl;
     memcpy(reg_in, reg_out, sizeof(reg_in));
   }
   return 0;
