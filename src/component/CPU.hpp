@@ -28,6 +28,7 @@ class CPU {
   Buffer<RSInfo> rs_nxt;
   Queue<LInfo> load_buffer_nxt;
   bool clear_flag;
+  uint commit_num = 0;
 
   uint reg[kRegNum + 1];
   uint& pc = reg[kRegNum];
@@ -170,8 +171,9 @@ class CPU {
           pc_nxt = front_instr.tar_addr;
         }
       }
-      /* {
+      /* if (commit_num <= 2000) {
         // DEBUG
+        std::cerr << commit_num++ << std::endl;
         std::cerr << "commit instr : " << std::hex << instr_queue.Front().instr.instr << " at pc : " << std::hex
                   << instr_queue.Front().pc << std::endl;
         if (instr_queue.Front().instr.op_type == BasicOpType::kStoreMem) {
@@ -272,8 +274,15 @@ class CPU {
                 calc_type = CalcType::kAdd;
               else  // if (instr.func7 == 0x20)
                 calc_type = CalcType::kSub;
-            } else
+            } else if (instr.func3 < 5)
               calc_type = CalcType(instr.func3 + 1);
+            else if (instr.func3 == 5) {
+              if (instr.func7 == 0)
+                calc_type = CalcType::kSrl;
+              else  // if (instr.func7 == 0x20)
+                calc_type = CalcType::kSra;
+            } else
+              calc_type = CalcType(instr.func3 + 2);
             uint lhs = rs_info.rs1_val;
             uint rhs = rs_info.rs2_val;
             if (instr.func3 == 1 || instr.func3 == 5) rhs = GetBits(rhs, 4, 0);

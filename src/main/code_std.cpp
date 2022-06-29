@@ -223,7 +223,6 @@ int main(int argc, char const* argv[]) {
   memcpy(mem_out, mem_in, sizeof(mem_in));
   while (1) {
     uint ori_instr = GetWord(mem_in, pc_in);
-    std::cerr << "commit instr : " << std::hex << ori_instr << " at pc : " << std::hex << pc_in << std::endl;
     if (ori_instr == 0x0ff00513) {
       cout << (reg_in[10] & 0xff) << endl;
       break;
@@ -382,13 +381,12 @@ int main(int argc, char const* argv[]) {
     } else if (basic_op_type == BasicOpType::kAUIPC) {  // auipc
       UTypeInstr instr(ori_instr);
       reg_out[instr.rd] = pc_in + (instr.imm << 12);
-    } else
-      cerr << "fail!" << endl;
+    } /*  else
+       cerr << "fail!" << endl; */
     // memcpy(mem_in, mem_out, sizeof(mem_in));
+    bool tmp = temp_record.is_available;
     if (temp_record.is_available) {
       temp_record.is_available = false;
-      std::cerr << "write mem : addr : " << std::hex << temp_record.addr << ", data : ";
-      std::cerr << std::hex << temp_record.val << std::endl;
       if (temp_record.write_type == WriteRecord::kByte) {
         WriteByte(mem_in, temp_record.addr, temp_record.val);
       }
@@ -399,10 +397,18 @@ int main(int argc, char const* argv[]) {
         WriteWord(mem_in, temp_record.addr, temp_record.val);
       }
     }
-
-    std::cerr << "---------reg---------" << endl;
-    for (int i = 0; i < 32; ++i) std::cerr << "reg[" << i << "] : " << std::hex << reg_out[i] << endl;
-    std::cerr << "--------!reg!--------" << endl;
+    static uint commit_num = 0;
+    if (commit_num <= 2000) {
+      std::cerr << commit_num++ << std::endl;
+      std::cerr << "commit instr : " << std::hex << ori_instr << " at pc : " << std::hex << pc_in << std::endl;
+      if (tmp) {
+        std::cerr << "write mem : addr : " << std::hex << temp_record.addr << ", data : ";
+        std::cerr << std::hex << temp_record.val << std::endl;
+      }
+      std::cerr << "---------reg---------" << endl;
+      for (int i = 0; i < 32; ++i) std::cerr << "reg[" << i << "] : " << std::hex << reg_out[i] << endl;
+      std::cerr << "--------!reg!--------" << endl;
+    }
     memcpy(reg_in, reg_out, sizeof(reg_in));
   }
   return 0;
