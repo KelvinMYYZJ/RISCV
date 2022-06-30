@@ -29,7 +29,7 @@ const int kTimeOfLoad = 5;
 const int kTimeOfWrite = 5;
 
 struct RSInfo {
-  InstrInfo instr;
+  const InstrInfo *instr;
   uint pc;
   uint rs1_val;
   uint rs2_val;
@@ -38,10 +38,10 @@ struct RSInfo {
   uint order;     // the index in the instr_queue
   uint step = 0;  // the step of LS instruction
   RSInfo() = default;
-  RSInfo(const InstrInfo& _instr, uint _pc) : instr(_instr), pc(_pc) {}
+  RSInfo(const InstrInfo *_instr, uint _pc) : instr(_instr), pc(_pc) {}
   bool Ready() {
     return rename_rs1 == NIDX && rename_rs2 == NIDX ||
-           ((instr.op_type == BasicOpType::kStoreMem || instr.op_type == BasicOpType::kLoadMem) && step == 0 &&
+           ((instr->op_type == BasicOpType::kStoreMem || instr->op_type == BasicOpType::kLoadMem) && step == 0 &&
             rename_rs1 == NIDX);
   }
 };
@@ -142,14 +142,4 @@ struct LInfo {
   LInfo() = default;
   LInfo(uint func3, uint _addr, uint _order)
       : mem_type(MemAccessType(func3 & 0x3)), is_unsigned(func3 & 0x4), addr(_addr), order(_order) {}
-};
-
-struct SInfo {
-  InstrInfo instr;
-  MemAccessType mem_type;
-  uint addr;
-  uint val;
-  int remain_time = kTimeOfWrite;
-  SInfo(InstrInfo _instr) : instr(_instr) { /* TDOO */
-  }
 };

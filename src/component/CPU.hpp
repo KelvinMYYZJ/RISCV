@@ -208,7 +208,7 @@ class CPU {
             instr_queue_nxt[i].need_cdb = true;
             break;
           }
-          RSInfo obj(now_instr, instr_queue[i].pc);
+          RSInfo obj(&now_instr, instr_queue[i].pc);
           const uint& rename1 = reg_rename[now_instr.rs1];
           if (rename1 == NIDX)
             obj.rs1_val = reg[now_instr.rs1];
@@ -238,7 +238,7 @@ class CPU {
       for (int i = 0; i < kDefaultLength; ++i)
         if (rs.avl[i] && rs[i].Ready()) {
           const RSInfo& rs_info = rs[i];
-          const InstrInfo instr = rs_info.instr;
+          const InstrInfo& instr = *rs_info.instr;
           // treat LS instructions
           if ((instr.op_type == BasicOpType::kLoadMem || instr.op_type == BasicOpType::kStoreMem)) {
             if (rs_info.step == 0) {  // Memory access is in the first step : calculate the address
@@ -346,7 +346,7 @@ class CPU {
           }
           if (instr.op_type == BasicOpType::kJALR) {
             if (alu.Full()) continue;
-            ALUInfo obj(CalcType::kAdd, rs_info.instr.imm, rs_info.rs1_val, rs_info.order);
+            ALUInfo obj(CalcType::kAdd, rs_info.instr->imm, rs_info.rs1_val, rs_info.order);
             alu_nxt.Push(obj);
             rs_nxt.Pop(i);
             break;
