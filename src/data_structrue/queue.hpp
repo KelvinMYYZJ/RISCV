@@ -21,9 +21,9 @@ struct Queue {
     ++head;
     if (head == Len) head = 0;
   }
-  bool Full() { return tail + 1 == head || tail + 1 == head + 32; }
+  bool Full() { return tail + 1 == head || tail + 1 == head + Len; }
   bool Empty() { return head == tail; }
-  T& operator[](int idx) { return val[idx]; }
+  T& operator[](const int& idx) { return val[idx]; }
   T& Front() { return val[head]; }
   void Clear() {
     head = 0;
