@@ -398,7 +398,7 @@ int main(int argc, char const* argv[]) {
       }
     }
     static uint commit_num = 0;
-    if (commit_num <= 20000000) {
+    /* if (commit_num <= 20000) {
       std::cerr << commit_num++ << std::endl;
       std::cerr << "commit instr : " << std::hex << ori_instr << " at pc : " << std::hex << pc_in << std::endl;
       if (tmp) {
@@ -408,7 +408,7 @@ int main(int argc, char const* argv[]) {
       std::cerr << "---------reg---------" << endl;
       for (int i = 0; i < 32; ++i) std::cerr << "reg[" << i << "] : " << std::hex << reg_out[i] << endl;
       std::cerr << "--------!reg!--------" << endl;
-    }
+    } */
     memcpy(reg_in, reg_out, sizeof(reg_in));
   }
   return 0;

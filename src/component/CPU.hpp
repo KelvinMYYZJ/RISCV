@@ -74,7 +74,7 @@ class CPU {
   // check whether a range of memory address is readable
   bool MemReadable(uint addr, MemAccessType mem_type, int order = NIDX) {
     if (order == NIDX) order = instr_queue.tail;
-    for (int i = instr_queue.head; i != order; i = (i + 1) % kDefaultLength)
+    for (int i = instr_queue.head; i != order; i = (i + 1) == kDefaultLength ? 0 : i + 1)
       if (instr_queue[i].instr.op_type == BasicOpType::kStoreMem) {
         // if the instruction is ready to be commited, check the address
         if (instr_queue[i].ready) {
@@ -112,7 +112,7 @@ class CPU {
     // instr_queue works
     // pop the first finished instruction from instr_queue
     // for (int i = instr_queue.head; i != instr_queue.tail && instr_queue[i].ready && !instr_queue[i].need_cdb;
-    //      i = (i + 1) % kDefaultLength) {
+    //      i = (i + 1) == kDefaultLength ? 0 : i + 1) {
     //   // apply the changes of the instruction
     //   if (instr_queue[i].instr.op_type == BasicOpType::kStoreMem) {
     //     // TODO : memory access
@@ -124,7 +124,7 @@ class CPU {
 
     ++clk;
     // push a task into cdb
-    for (int order = instr_queue.head; order != instr_queue.tail; order = (order + 1) % kDefaultLength)
+    for (int order = instr_queue.head; order != instr_queue.tail; order = (order + 1) == kDefaultLength ? 0 : order + 1)
       if (instr_queue[order].need_cdb) {
         const uint& now_val = instr_queue[order].result;
         instr_queue_nxt[order].need_cdb = false;
@@ -198,7 +198,7 @@ class CPU {
     // RS works
     // Try to get an instruction from instr_queue
     if (!rs.Full() && !instr_queue.Empty())
-      for (int i = instr_queue.head; i != instr_queue.tail; i = (i + 1) % kDefaultLength)
+      for (int i = instr_queue.head; i != instr_queue.tail; i = (i + 1) == kDefaultLength ? 0 : i + 1)
         if (instr_queue[i].pos_rs == NIDX && !instr_queue[i].ready) {
           const InstrInfo& now_instr = instr_queue[i].instr;
           if (now_instr.rd) reg_rename_nxt[now_instr.rd] = i;
@@ -208,7 +208,7 @@ class CPU {
             instr_queue_nxt[i].need_cdb = true;
             break;
           }
-          RSInfo obj(now_instr, instr_queue[i].pc);
+          RSInfo obj(&now_instr, instr_queue[i].pc);
           const uint& rename1 = reg_rename[now_instr.rs1];
           if (rename1 == NIDX)
             obj.rs1_val = reg[now_instr.rs1];
@@ -238,7 +238,7 @@ class CPU {
       for (int i = 0; i < kDefaultLength; ++i)
         if (rs.avl[i] && rs[i].Ready()) {
           const RSInfo& rs_info = rs[i];
-          const InstrInfo instr = rs_info.instr;
+          const InstrInfo& instr = *rs_info.instr;
           // treat LS instructions
           if ((instr.op_type == BasicOpType::kLoadMem || instr.op_type == BasicOpType::kStoreMem)) {
             if (rs_info.step == 0) {  // Memory access is in the first step : calculate the address
@@ -346,7 +346,7 @@ class CPU {
           }
           if (instr.op_type == BasicOpType::kJALR) {
             if (alu.Full()) continue;
-            ALUInfo obj(CalcType::kAdd, rs_info.instr.imm, rs_info.rs1_val, rs_info.order);
+            ALUInfo obj(CalcType::kAdd, rs_info.instr->imm, rs_info.rs1_val, rs_info.order);
             alu_nxt.Push(obj);
             rs_nxt.Pop(i);
             break;
