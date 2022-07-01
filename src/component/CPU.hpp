@@ -1,5 +1,6 @@
 #pragma once
 #include <bits/stdc++.h>
+using std::cerr;
 using std::cout;
 using std::endl;
 #include "buffer.hpp"
@@ -19,6 +20,16 @@ class CPU {
     uint val;
     MemAccessType store_type;
   };
+  struct PredictInfo {
+    uint two_bit_buffer = 1;
+    void RecordResult(bool result) {
+      if (result) {
+        if (two_bit_buffer != 3) ++two_bit_buffer;
+      } else {
+        if (two_bit_buffer) --two_bit_buffer;
+      }
+    }
+  };
   std::vector<MemModifyRecord> mem_modify_records;
   uint reg_nxt[kRegNum + 1];
   uint& pc_nxt = reg_nxt[kRegNum];
@@ -29,7 +40,7 @@ class CPU {
   Queue<LInfo> load_buffer_nxt;
   bool clear_flag_nxt;
   uint clear_pc_nxt;
-  uint commit_num = 0;
+  PredictInfo predict_info_nxt;
 
   uint reg[kRegNum + 1];
   uint& pc = reg[kRegNum];
@@ -40,6 +51,11 @@ class CPU {
   Queue<LInfo> load_buffer;
   bool clear_flag;
   uint clear_pc;
+  PredictInfo predict_info;
+
+  uint commit_num = 0;
+  unsigned long long predict_success_num = 0;
+  unsigned long long predict_fail_num = 0;
   void UpdateValue() {
     // mem_modify_records only contain one piece of record
     if (!mem_modify_records.empty()) {
@@ -71,6 +87,7 @@ class CPU {
     memcpy(&alu, &alu_nxt, sizeof(alu));
     memcpy(&rs, &rs_nxt, sizeof(rs));
     memcpy(&load_buffer, &load_buffer_nxt, sizeof(load_buffer));
+    memcpy(&predict_info, &predict_info_nxt, sizeof(predict_info));
     clear_flag = clear_flag_nxt;
     clear_pc = clear_pc_nxt;
   }
@@ -171,10 +188,13 @@ class CPU {
         mem_modify_records.push_back(obj);
       } else if (instr.op_type == BasicOpType::kBControl) {
         // prediction is wrong, clear everything
+        predict_info_nxt.RecordResult(front_instr.result);
         if (front_instr.result != front_instr.prediction) {
+          ++predict_fail_num;
           clear_flag_nxt = true;
           clear_pc_nxt = front_instr.result ? front_instr.pc + instr.imm : front_instr.pc + 4;
-        }
+        } else
+          ++predict_success_num;
       } else {
         // write regester
         if (instr.rd) {
@@ -207,6 +227,12 @@ class CPU {
       InstrQueueInfo obj(GetWord(mem, pc), pc);
       if (obj.instr.op_type == BasicOpType::kJAL) {
         pc_nxt = pc + obj.instr.imm;
+      }
+      if (obj.instr.op_type == BasicOpType::kBControl) {
+        // Branch Predection part
+        // decide obj.prediction
+        obj.prediction = GetBit(predict_info.two_bit_buffer, 1);
+        if (obj.prediction) pc_nxt = pc + obj.instr.imm;
       }
       instr_queue_nxt.Push(obj);
     }
@@ -438,6 +464,7 @@ class CPU {
       UpdateValue();
       if (reach_end) {
         cout << (reg[10] & 0xff) << endl;
+        cerr << predict_success_num << ' ' << predict_fail_num + predict_success_num << endl;
         return;
       }
     }
