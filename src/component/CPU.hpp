@@ -21,10 +21,11 @@ class CPU {
     MemAccessType store_type;
   };
   struct PredictInfo {
-    uint two_bit_buffer[32] = {1};
-    uint pc_of_idx[32];
+		static const uint kSize = 5;
+    uint two_bit_buffer[1<<kSize] = {1};
+    uint pc_of_idx[1<<kSize];
     void RecordResult(bool result, uint pc) {
-      uint now_idx = GetBits(pc, 4, 0);
+      uint now_idx = GetBits(pc, kSize -1 , 0);
       uint& now_buffer = two_bit_buffer[now_idx];
       if (pc == pc_of_idx[now_idx]) {
         pc_of_idx[now_idx] = pc;
