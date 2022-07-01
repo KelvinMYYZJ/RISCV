@@ -27,7 +27,8 @@ class CPU {
   Buffer<ALUInfo> alu_nxt;
   Buffer<RSInfo> rs_nxt;
   Queue<LInfo> load_buffer_nxt;
-  bool clear_flag;
+  bool clear_flag_nxt;
+  uint clear_pc_nxt;
   uint commit_num = 0;
 
   uint reg[kRegNum + 1];
@@ -37,6 +38,8 @@ class CPU {
   Buffer<ALUInfo> alu;
   Buffer<RSInfo> rs;
   Queue<LInfo> load_buffer;
+  bool clear_flag;
+  uint clear_pc;
   void UpdateValue() {
     // mem_modify_records only contain one piece of record
     if (!mem_modify_records.empty()) {
@@ -54,20 +57,22 @@ class CPU {
       }
       mem_modify_records.clear();
     }
-    if (clear_flag) {  // TODO : make this correct
-      clear_flag = false;
-      instr_queue_nxt.Clear();
-      alu_nxt.Clear();
-      rs_nxt.Clear();
-      load_buffer_nxt.Clear();
-      for (int i = 0; i < kRegNum; ++i) reg_rename_nxt[i] = NIDX;
-    }
+    // if (clear_flag) {  // TODO : make this correct
+    //   clear_flag = false;
+    //   instr_queue_nxt.Clear();
+    //   alu_nxt.Clear();
+    //   rs_nxt.Clear();
+    //   load_buffer_nxt.Clear();
+    //   for (int i = 0; i < kRegNum; ++i) reg_rename_nxt[i] = NIDX;
+    // }
     memcpy(reg, reg_nxt, sizeof(reg));
     memcpy(reg_rename, reg_rename_nxt, sizeof(reg_rename));
     memcpy(&instr_queue, &instr_queue_nxt, sizeof(instr_queue));
     memcpy(&alu, &alu_nxt, sizeof(alu));
     memcpy(&rs, &rs_nxt, sizeof(rs));
     memcpy(&load_buffer, &load_buffer_nxt, sizeof(load_buffer));
+    clear_flag = clear_flag_nxt;
+    clear_pc = clear_pc_nxt;
   }
   // set true if get the instruction 0x0ff00513
   bool reach_end = false;
@@ -123,6 +128,16 @@ class CPU {
     // }
 
     ++clk;
+    if (clear_flag) {
+      clear_flag_nxt = false;
+      instr_queue_nxt.Clear();
+      alu_nxt.Clear();
+      rs_nxt.Clear();
+      load_buffer_nxt.Clear();
+      for (int i = 0; i < kRegNum; ++i) reg_rename_nxt[i] = NIDX;
+      pc_nxt = clear_pc;
+      return;
+    }
     // push a task into cdb
     for (int order = instr_queue.head; order != instr_queue.tail; order = (order + 1) == kDefaultLength ? 0 : order + 1)
       if (instr_queue[order].need_cdb) {
@@ -157,8 +172,8 @@ class CPU {
       } else if (instr.op_type == BasicOpType::kBControl) {
         // prediction is wrong, clear everything
         if (front_instr.result != front_instr.prediction) {
-          clear_flag = true;
-          pc_nxt = front_instr.result ? front_instr.pc + instr.imm : front_instr.pc + 4;
+          clear_flag_nxt = true;
+          clear_pc_nxt = front_instr.result ? front_instr.pc + instr.imm : front_instr.pc + 4;
         }
       } else {
         // write regester
@@ -167,8 +182,8 @@ class CPU {
           if (reg_rename[instr.rd] == instr_queue.head) reg_rename_nxt[instr.rd] = NIDX;
         }
         if (instr.op_type == BasicOpType::kJALR) {
-          clear_flag = true;
-          pc_nxt = front_instr.tar_addr;
+          clear_flag_nxt = true;
+          clear_pc_nxt = front_instr.tar_addr;
         }
       }
       /* if (commit_num <= 2000) {
@@ -187,7 +202,7 @@ class CPU {
     }
 
     // Read an instruction if possible
-    if (!clear_flag && !instr_queue.Full() && MemReadable(pc, MemAccessType::kWord)) {
+    if (!instr_queue.Full() && MemReadable(pc, MemAccessType::kWord)) {
       pc_nxt = pc + 4;
       InstrQueueInfo obj(GetWord(mem, pc), pc);
       if (obj.instr.op_type == BasicOpType::kJAL) {
@@ -415,6 +430,7 @@ class CPU {
     memset(reg_nxt, 0, sizeof(reg_nxt));
     for (int i = 0; i < kRegNum; ++i) reg_rename_nxt[i] = NIDX;
     clear_flag = false;
+    clear_flag_nxt = false;
     ScanMem(mem);
     clk = 0;
     while (1) {
