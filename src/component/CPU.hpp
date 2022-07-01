@@ -9,6 +9,7 @@ using std::endl;
 #include "mem_scanner.hpp"
 #include "number_operator.hpp"
 #include "queue.hpp"
+#include "random.hpp"
 const int kTotalMem = 1 << 20;
 const int kRegNum = 32;
 class CPU {
@@ -21,11 +22,11 @@ class CPU {
     MemAccessType store_type;
   };
   struct PredictInfo {
-		static const uint kSize = 5;
-    uint two_bit_buffer[1<<kSize] = {1};
-    uint pc_of_idx[1<<kSize];
+    static const uint kSize = 5;
+    uint two_bit_buffer[1 << kSize] = {1};
+    uint pc_of_idx[1 << kSize];
     void RecordResult(bool result, uint pc) {
-      uint now_idx = GetBits(pc, kSize -1 , 0);
+      uint now_idx = GetBits(pc, kSize - 1, 0);
       uint& now_buffer = two_bit_buffer[now_idx];
       if (pc == pc_of_idx[now_idx]) {
         pc_of_idx[now_idx] = pc;
@@ -70,6 +71,8 @@ class CPU {
   uint commit_num = 0;
   unsigned long long predict_success_num = 0;
   unsigned long long predict_fail_num = 0;
+  // set true if get the instruction 0x0ff00513
+  bool reach_end = false;
   void UpdateValue() {
     // mem_modify_records only contain one piece of record
     if (!mem_modify_records.empty()) {
@@ -87,14 +90,6 @@ class CPU {
       }
       mem_modify_records.clear();
     }
-    // if (clear_flag) {  // TODO : make this correct
-    //   clear_flag = false;
-    //   instr_queue_nxt.Clear();
-    //   alu_nxt.Clear();
-    //   rs_nxt.Clear();
-    //   load_buffer_nxt.Clear();
-    //   for (int i = 0; i < kRegNum; ++i) reg_rename_nxt[i] = NIDX;
-    // }
     memcpy(reg, reg_nxt, sizeof(reg));
     memcpy(reg_rename, reg_rename_nxt, sizeof(reg_rename));
     memcpy(&instr_queue, &instr_queue_nxt, sizeof(instr_queue));
@@ -105,8 +100,6 @@ class CPU {
     clear_flag = clear_flag_nxt;
     clear_pc = clear_pc_nxt;
   }
-  // set true if get the instruction 0x0ff00513
-  bool reach_end = false;
   // check whether a range of memory address is readable
   bool MemReadable(uint addr, MemAccessType mem_type, int order = NIDX) {
     if (order == NIDX) order = instr_queue.tail;
@@ -129,36 +122,8 @@ class CPU {
       }
     return true;
   }
-  // check whether a range of memory address is writable
-  // bool MemWritable(uint addr, MemAccessType mem_type) {
-  //   for (int i = 0; i < kDefaultLength; ++i) {
-  //     if (store_buffer.avl[i]) {
-  //       const auto& w_info = store_buffer[i];
-  //       if (MemAccessConflect(w_info.addr, w_info.mem_type, addr, mem_type)) return false;
-  //     }
-  //     if (load_buffer.avl[i]) {
-  //       const auto& l_info = load_buffer[i];
-  //       if (MemAccessConflect(l_info.addr, l_info.mem_type, addr, mem_type)) return false;
-  //     }
-  //   }
-  //   return true;
-  // }
-  // simulate the work done in a clk cycle (except the ValueUpadte)
-  void ClkWork() {
-    // instr_queue works
-    // pop the first finished instruction from instr_queue
-    // for (int i = instr_queue.head; i != instr_queue.tail && instr_queue[i].ready && !instr_queue[i].need_cdb;
-    //      i = (i + 1) == kDefaultLength ? 0 : i + 1) {
-    //   // apply the changes of the instruction
-    //   if (instr_queue[i].instr.op_type == BasicOpType::kStoreMem) {
-    //     // TODO : memory access
-    //     break;
-    //   }
-    //   instr_queue_nxt.Pop();
-    //   break;
-    // }
 
-    ++clk;
+  void InstrQueueWork() {
     if (clear_flag) {
       clear_flag_nxt = false;
       instr_queue_nxt.Clear();
@@ -250,7 +215,9 @@ class CPU {
       }
       instr_queue_nxt.Push(obj);
     }
-    // RS works
+  }
+  void RSWork() {
+    if (clear_flag) return;
     // Try to get an instruction from instr_queue
     if (!rs.Full() && !instr_queue.Empty())
       for (int i = instr_queue.head; i != instr_queue.tail; i = (i + 1) == kDefaultLength ? 0 : i + 1)
@@ -407,7 +374,9 @@ class CPU {
             break;
           }
         }
-    // ALU works
+  }
+  void ALUWork() {
+    if (clear_flag) return;
     // treat the tasks in alu
     if (!alu.Empty())
       for (int i = 0; i < kDefaultLength; ++i)
@@ -434,7 +403,9 @@ class CPU {
           } else
             alu_nxt[i].remain_time--;
         }
-    // load_buffer works
+  }
+  void LoadBufferWork() {
+    if (clear_flag) return;
     // treat the first task in load_buffer
     if (!load_buffer.Empty()) {
       if (!load_buffer.Front().remain_time) {
@@ -462,6 +433,29 @@ class CPU {
     }
   }
 
+  // simulate the work done in a clk cycle (except the ValueUpadte)
+  void ClkWork() {
+    ++clk;
+    int exe_order[] = {0, 1, 2, 3};
+    std::random_shuffle(exe_order, exe_order + 4);
+    for (int i = 0; i < 4; ++i) {
+      switch (exe_order[i]) {
+        case 0:
+          InstrQueueWork();
+          break;
+        case 1:
+          RSWork();
+          break;
+        case 2:
+          ALUWork();
+          break;
+        case 3:
+          LoadBufferWork();
+          break;
+      }
+    }
+  }
+
  public:
   void Work() {
     memset(mem, 0, sizeof(mem));
@@ -474,6 +468,7 @@ class CPU {
     ScanMem(mem);
     clk = 0;
     while (1) {
+      srand(time(NULL));
       ClkWork();
       UpdateValue();
       if (reach_end) {
