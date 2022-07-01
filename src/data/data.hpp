@@ -56,8 +56,8 @@ struct InstrQueueInfo {
   uint result;
   uint tar_addr;
   bool prediction;
-  InstrQueueInfo(uint _instr = 0, uint _pc = 0)
-      : instr(_instr), pc(_pc), pos_rs(NIDX), ready(false), need_cdb(false), prediction(false) {}
+  InstrQueueInfo(uint _instr = 0, uint _pc = 0, bool _prediction = false)
+      : instr(_instr), pc(_pc), pos_rs(NIDX), ready(false), need_cdb(false), prediction(_prediction) {}
 };
 
 struct ALUInfo {
