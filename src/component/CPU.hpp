@@ -21,13 +21,26 @@ class CPU {
     MemAccessType store_type;
   };
   struct PredictInfo {
-    uint two_bit_buffer = 1;
-    void RecordResult(bool result) {
-      if (result) {
-        if (two_bit_buffer != 3) ++two_bit_buffer;
-      } else {
-        if (two_bit_buffer) --two_bit_buffer;
+    uint two_bit_buffer[32] = {1};
+    uint pc_of_idx[32];
+    void RecordResult(bool result, uint pc) {
+      uint now_idx = GetBits(pc, 4, 0);
+      uint& now_buffer = two_bit_buffer[now_idx];
+      if (pc == pc_of_idx[now_idx]) {
+        pc_of_idx[now_idx] = pc;
+        now_buffer = result ? 2 : 1;
+        return;
       }
+      if (result) {
+        if (now_buffer != 3) ++now_buffer;
+      } else {
+        if (now_buffer) --now_buffer;
+      }
+    }
+    bool Predict(uint pc) const {
+      uint now_idx = GetBits(pc, 4, 0);
+      const uint& now_buffer = two_bit_buffer[now_idx];
+      return GetBit(now_buffer, 1);
     }
   };
   std::vector<MemModifyRecord> mem_modify_records;
@@ -188,7 +201,7 @@ class CPU {
         mem_modify_records.push_back(obj);
       } else if (instr.op_type == BasicOpType::kBControl) {
         // prediction is wrong, clear everything
-        predict_info_nxt.RecordResult(front_instr.result);
+        predict_info_nxt.RecordResult(front_instr.result, front_instr.pc);
         if (front_instr.result != front_instr.prediction) {
           ++predict_fail_num;
           clear_flag_nxt = true;
@@ -231,7 +244,7 @@ class CPU {
       if (obj.instr.op_type == BasicOpType::kBControl) {
         // Branch Predection part
         // decide obj.prediction
-        obj.prediction = GetBit(predict_info.two_bit_buffer, 1);
+        obj.prediction = predict_info.Predict(pc);
         if (obj.prediction) pc_nxt = pc + obj.instr.imm;
       }
       instr_queue_nxt.Push(obj);
