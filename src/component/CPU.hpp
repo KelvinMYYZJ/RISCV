@@ -26,6 +26,8 @@ class CPU {
     uint two_bit_buffer[1 << kSize] = {1};
     uint pc_of_idx[1 << kSize];
     void RecordResult(bool result, uint pc) {
+			// as most pc end with 0b00, the effective part actually begin at the index 2
+			pc >>= 2;
       uint now_idx = GetBits(pc, kSize - 1, 0);
       uint& now_buffer = two_bit_buffer[now_idx];
       if (pc == pc_of_idx[now_idx]) {
@@ -40,6 +42,7 @@ class CPU {
       }
     }
     bool Predict(uint pc) const {
+			pc >>= 2;
       uint now_idx = GetBits(pc, 4, 0);
       const uint& now_buffer = two_bit_buffer[now_idx];
       return GetBit(now_buffer, 1);
