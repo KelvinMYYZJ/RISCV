@@ -26,6 +26,8 @@ class CPU {
     uint two_bit_buffer[1 << kSize] = {1};
     uint pc_of_idx[1 << kSize];
     void RecordResult(bool result, uint pc) {
+			// as most pc end with 0b00, the effective part actually begin at the index 2
+			pc >>= 2;
       uint now_idx = GetBits(pc, kSize - 1, 0);
       uint& now_buffer = two_bit_buffer[now_idx];
       if (pc == pc_of_idx[now_idx]) {
@@ -40,6 +42,7 @@ class CPU {
       }
     }
     bool Predict(uint pc) const {
+			pc >>= 2;
       uint now_idx = GetBits(pc, 4, 0);
       const uint& now_buffer = two_bit_buffer[now_idx];
       return GetBit(now_buffer, 1);
@@ -219,8 +222,9 @@ class CPU {
   void RSWork() {
     if (clear_flag) return;
     // Try to get an instruction from instr_queue
-		// cant get instructions when instr_queue is commiting
-    if (!rs.Full() && !instr_queue.Empty() && !(!instr_queue.Empty() && instr_queue.Front().ready && !instr_queue.Front().need_cdb))
+    // cant get instructions when instr_queue is commiting
+    if (!rs.Full() && !instr_queue.Empty() &&
+        !(!instr_queue.Empty() && instr_queue.Front().ready && !instr_queue.Front().need_cdb))
       for (int i = instr_queue.head; i != instr_queue.tail; i = (i + 1) == kDefaultLength ? 0 : i + 1)
         if (instr_queue[i].pos_rs == NIDX && !instr_queue[i].ready) {
           const InstrInfo& now_instr = instr_queue[i].instr;
@@ -474,7 +478,7 @@ class CPU {
       UpdateValue();
       if (reach_end) {
         cout << (reg[10] & 0xff) << endl;
-        cerr << predict_success_num << ' ' << predict_fail_num + predict_success_num << endl;
+        cerr << predict_success_num << ' ' << predict_fail_num + predict_success_num << ' ' << clk << endl;
         return;
       }
     }
