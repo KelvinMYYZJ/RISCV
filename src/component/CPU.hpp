@@ -219,7 +219,8 @@ class CPU {
   void RSWork() {
     if (clear_flag) return;
     // Try to get an instruction from instr_queue
-    if (!rs.Full() && !instr_queue.Empty())
+		// cant get instructions when instr_queue is commiting
+    if (!rs.Full() && !instr_queue.Empty() && !(!instr_queue.Empty() && instr_queue.Front().ready && !instr_queue.Front().need_cdb))
       for (int i = instr_queue.head; i != instr_queue.tail; i = (i + 1) == kDefaultLength ? 0 : i + 1)
         if (instr_queue[i].pos_rs == NIDX && !instr_queue[i].ready) {
           const InstrInfo& now_instr = instr_queue[i].instr;
@@ -467,8 +468,8 @@ class CPU {
     clear_flag_nxt = false;
     ScanMem(mem);
     clk = 0;
+    srand(time(NULL));
     while (1) {
-      srand(time(NULL));
       ClkWork();
       UpdateValue();
       if (reach_end) {
